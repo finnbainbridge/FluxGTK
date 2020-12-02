@@ -1,0 +1,3 @@
+[submodule "FluxEngine"]
+	path = FluxEngine
+	url = https://github.com/FinnTheTurkey/FluxEngine.git
