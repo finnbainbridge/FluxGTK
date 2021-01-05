@@ -14,7 +14,7 @@ include_directories(${GTKMM_INCLUDE_DIRS})
 link_directories(${GTKMM_LIBRARY_DIRS})
 link_libraries(${GTKMM_LIBRARIES})
 
-add_library(FluxGTK GTK.cc)
+add_library(FluxGTK STATIC GTK.cc)
 
 set(FLUX_BUILD_GLFW OFF)
 
