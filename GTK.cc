@@ -7,6 +7,7 @@
 #include "gdk/gdkkeysyms.h"
 #include "gdkmm/device.h"
 #include "gdkmm/event.h"
+#include "gdkmm/types.h"
 #include "glibmm/containers.h"
 #include "gtkmm/eventbox.h"
 #include "gtkmm/glarea.h"
@@ -25,8 +26,8 @@ void Flux::GLRenderer::createWindow(const int& width, const int& height, const s
     // Do Nothing
 }
 
-static Gtk::GLArea* glarea;
-static Gtk::EventBox* eventbox;
+static Gtk::GLArea* glarea = nullptr;
+static Gtk::EventBox* eventbox = nullptr;
 
 void onRealize()
 {
@@ -43,7 +44,7 @@ void onRealize()
     glViewport(0, 0, Flux::GLRenderer::current_window->width, Flux::GLRenderer::current_window->height);
 }
 
-void (*func)();
+void (*func)() = nullptr;
 
 void Flux::setMainLoopFunction(void (*fun)())
 {
@@ -55,13 +56,14 @@ void render()
     func();
 }
 
-static float scroll_offset = 0;
+static std::vector<float> scroll_offset { 0 };
 
 bool onRender(const Glib::RefPtr<Gdk::GLContext>& context)
 {
     render();
     glarea->queue_render();
-    scroll_offset = 0;
+    scroll_offset[0] = 0;
+    current_window->offset = glm::vec2(0, 0);
 
     return true;
 }
@@ -81,10 +83,21 @@ void onResize(int width, int height)
 
 bool onKeyPress(GdkEventKey* event);
 bool onKeyRelease(GdkEventKey* event);
+
+bool onMouseButtonPress(GdkEventButton* event);
+bool onMouseButtonRelease(GdkEventButton* event);
+
 bool onMouseMotion(GdkEventMotion* event);
 bool onScroll(GdkEventScroll* event)
 {
-    scroll_offset += event->y;
+    if (event->direction == GDK_SCROLL_UP)
+    {
+        scroll_offset[0] += 1;
+    }
+    else if (event->direction == GDK_SCROLL_DOWN)
+    {
+        scroll_offset[0] -= 1;
+    }
     return true;
 }
 
@@ -114,13 +127,17 @@ void Flux::GTK::startRenderer(Gtk::EventBox* event_box, Gtk::GLArea* gl_area)
     gl_area->signal_resize().connect(sigc::ptr_fun(&onResize));
 
     event_box->add_events(Gdk::BUTTON_MOTION_MASK | Gdk::BUTTON_PRESS_MASK | Gdk::KEY_PRESS_MASK |
-                          Gdk::SMOOTH_SCROLL_MASK | Gdk::POINTER_MOTION_MASK);
+                          Gdk::SMOOTH_SCROLL_MASK | Gdk::POINTER_MOTION_MASK | Gdk::SCROLL_MASK);
     event_box->signal_key_press_event().connect(sigc::ptr_fun(&onKeyPress), false);
     event_box->signal_key_release_event().connect(sigc::ptr_fun(&onKeyRelease), false);
+    event_box->signal_button_press_event().connect(sigc::ptr_fun(&onMouseButtonPress), false);
+    event_box->signal_button_release_event().connect(sigc::ptr_fun(&onMouseButtonRelease), false);
+    event_box->signal_scroll_event().connect(sigc::ptr_fun(&onScroll), false);
 
     gl_area->grab_focus();
     event_box->grab_focus();
     event_box->grab_default();
+    eventbox->set_focus_on_click(true);
 
     // How to get position in parent
     int x, y;
@@ -154,27 +171,42 @@ double Flux::Renderer::getTime()
 
 int gtkKeyToFluxKey(int key);
 
-std::map<int, bool> keys_pressed;
+static std::map<int, bool> keys_pressed;
 
 bool onKeyPress(GdkEventKey* event)
 {
     keys_pressed[gtkKeyToFluxKey(event->keyval)] = true;
-    return false;
+    return true;
 }
 
 bool onKeyRelease(GdkEventKey* event)
 {
     keys_pressed[gtkKeyToFluxKey(event->keyval)] = false;
-    return false;
+    return true;
 }
+
+static std::map<int, bool> buttons_pressed;
+
+bool onMouseButtonPress(GdkEventButton* event)
+{
+    buttons_pressed[event->button] = true;
+    return true;
+}
+
+bool onMouseButtonRelease(GdkEventButton* event)
+{
+    buttons_pressed[event->button] = false;
+    return true;
+}
+
 bool grabbed = true;
 
 bool onMouseMotion(GdkEventMotion* event)
 {
     // How to get position in parent
-    int x, y;
-    Gtk::Widget* parent = eventbox->get_toplevel();
-    eventbox->translate_coordinates(*parent, 0, 0, x, y);
+    // int x, y;
+    // Gtk::Widget* parent = eventbox->get_toplevel();
+    // eventbox->translate_coordinates(*parent, 0, 0, x, y);
 
     glm::vec2 new_pos = glm::vec2(event->x, event->y);
 
@@ -199,6 +231,8 @@ bool onMouseMotion(GdkEventMotion* event)
         {
             gtk_grab_add((GtkWidget*)eventbox->gobj());
             grabbed = true;
+            glarea->grab_focus();
+            eventbox->grab_focus();
         }
 
         current_window->offset = current_window->mouse_pos - new_pos;
@@ -265,7 +299,7 @@ bool Flux::Input::isKeyPressed(int key)
     {
         return keys_pressed.at(key);
     }
-    catch (std::exception e)
+    catch (std::exception& e)
     {
         return false;
     }
@@ -273,11 +307,19 @@ bool Flux::Input::isKeyPressed(int key)
 
 bool Flux::Input::isMouseButtonPressed(int button)
 {
-    return false;
+    try
+    {
+        return buttons_pressed.at(button);
+    }
+    catch (std::exception& e)
+    {
+        return false;
+    }
 }
 
 void Flux::Input::setCursorMode(Input::CursorMode mode)
 {
+    LOG_WARN("Unimplemented :/");
 }
 
 void Flux::Input::setMouseMode(Input::MouseMode mode)
@@ -297,7 +339,7 @@ glm::vec2& Flux::Input::getMousePosition()
 
 float Flux::Input::getScrollWheelOffset()
 {
-    return 0;
+    return (float)scroll_offset[0];
 }
 
 /// ======================================
