@@ -239,19 +239,21 @@ bool onMouseMotion(GdkEventMotion* event)
         current_window->mouse_pos = new_pos;
 
         // Check for mouse modes
-        // As of right now, Mouse Mode confined isn't supported on GTK
+        // As of right now, Mouse Mode captured isn't supported on GTK
         // Nor is hiding the cursor
         if (current_window->mouse_mode == Flux::Input::MouseMode::Confined)
         {
             if (new_pos.x < 15)
             {
-                // Get global positon of window
+                // Get global position of window
                 int total_x, total_y;
                 eventbox->get_window()->get_origin(total_x, total_y);
 
                 // Set position and move mouse pointer
                 new_pos.x = current_window->width-15;
                 gdk_device_warp(event->device, eventbox->get_screen()->gobj(), total_x +  new_pos.x, total_y +  new_pos.y);
+
+                current_window->offset = glm::vec2(0, 0);
             }
             else if (new_pos.x > current_window->width-15)
             {
@@ -262,6 +264,7 @@ bool onMouseMotion(GdkEventMotion* event)
                 // Set position and move mouse pointer
                 new_pos.x = 15;
                 gdk_device_warp(event->device, eventbox->get_screen()->gobj(), total_x +  new_pos.x, total_y +  new_pos.y);
+                current_window->offset = glm::vec2(0, 0);
             }
 
             if (new_pos.y > current_window->height-15)
@@ -273,6 +276,7 @@ bool onMouseMotion(GdkEventMotion* event)
                 // Set position and move mouse pointer
                 new_pos.y = 15;
                 gdk_device_warp(event->device, eventbox->get_screen()->gobj(), total_x +  new_pos.x, total_y +  new_pos.y);
+                current_window->offset = glm::vec2(0, 0);
             }
             else if (new_pos.y < 15)
             {
@@ -283,8 +287,8 @@ bool onMouseMotion(GdkEventMotion* event)
                 // Set position and move mouse pointer
                 new_pos.y = current_window->height-15;
                 gdk_device_warp(event->device, eventbox->get_screen()->gobj(), total_x +  new_pos.x, total_y +  new_pos.y);
+                current_window->offset = glm::vec2(0, 0);
             }
-            
         }
     }
 
